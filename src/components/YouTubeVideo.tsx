@@ -42,6 +42,6 @@ html,body{margin:0;width:100%;height:100%;background:#000;overflow:hidden}iframe
 }
 
 const styles = StyleSheet.create({
-  placeholder: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000', justifyContent: 'center' },
-  webview: { ...StyleSheet.absoluteFillObject, backgroundColor: '#000' },
+  placeholder: { ...StyleSheet.absoluteFill, backgroundColor: '#000', justifyContent: 'center' },
+  webview: { ...StyleSheet.absoluteFill, backgroundColor: '#000' },
 });
