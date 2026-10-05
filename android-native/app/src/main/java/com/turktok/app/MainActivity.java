@@ -20,7 +20,6 @@ public class MainActivity extends Activity {
     private WebView webView;
     private View customView;
     private WebChromeClient.CustomViewCallback customViewCallback;
-    private FrameLayout fullscreenContainer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,28 +54,21 @@ public class MainActivity extends Activity {
                 }
                 customView = view;
                 customViewCallback = callback;
-                fullscreenContainer = new FrameLayout(MainActivity.this);
-                fullscreenContainer.setBackgroundColor(Color.BLACK);
-                fullscreenContainer.addView(
+                FrameLayout container = new FrameLayout(MainActivity.this);
+                container.setBackgroundColor(Color.BLACK);
+                container.addView(
                     customView,
                     new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                 );
-                setContentView(fullscreenContainer);
+                setContentView(container);
             }
 
             @Override
             public void onHideCustomView() {
-                if (customView == null) return;
-                customView = null;
-                if (customViewCallback != null) {
-                    customViewCallback.onCustomViewHidden();
-                    customViewCallback = null;
-                }
-                fullscreenContainer = null;
-                setContentView(webView);
+                hideCustomView();
             }
         });
 
@@ -102,6 +94,16 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void hideCustomView() {
+        if (customView == null) return;
+        customView = null;
+        if (customViewCallback != null) {
+            customViewCallback.onCustomViewHidden();
+            customViewCallback = null;
+        }
+        setContentView(webView);
+    }
+
     private String readAsset(String name) throws Exception {
         InputStream input = getAssets().open(name);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
@@ -117,7 +119,7 @@ public class MainActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (customView != null) {
-            webView.getWebChromeClient().onHideCustomView();
+            hideCustomView();
         } else if (webView.canGoBack()) {
             webView.goBack();
         } else {
