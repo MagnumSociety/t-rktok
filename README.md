@@ -1,40 +1,23 @@
 # Türktok
 
-Türktok ist ein vertikaler Kurzvideo-Feed auf Basis der offiziellen YouTube Data API v3 und des eingebetteten YouTube-Players.
+Türktok ist jetzt eine **native Android-App ohne React Native/Metro und ohne API-Token**.
 
-## Themen
+## Was geändert wurde
 
-- Erdogan Düzenlemeleri
+Die vorherige Debug-APK brauchte den Metro-Entwicklungsserver und konnte deshalb auf einem normalen Smartphone das JavaScript-Bundle nicht laden. Die neue Version ist eine kleine native Android-App mit eingebauter Web-Oberfläche. Es gibt keinen Metro-Server und keinen YouTube-API-Key.
+
+## Wiedergabe
+
+Die App hat drei lokale Listen:
+
+- Erdoğan Düzenlemeleri
 - Atatürk düzenlemeleri
 - Halay mix
 
-Die App durchsucht YouTube für das gewählte Thema, lädt weitere Treffer beim Scrollen nach und filtert die endgültige Liste auf Videos mit maximal 180 Sekunden Länge. Das jeweils sichtbare Video wird über den offiziellen YouTube-Embed-Player wiedergegeben.
+Über **+ Link** können pro Thema YouTube-Links, YouTube-Shorts-Links oder direkte MP4/WebM-Links eingefügt werden. Mehrere Links können zeilenweise eingefügt werden. Die Listen werden lokal auf dem Gerät gespeichert.
 
-## YouTube API-Key
+YouTube-Videos werden über den offiziellen eingebetteten Player abgespielt. Dadurch ist **kein API-Token** nötig. Die App benötigt natürlich weiterhin Internetzugang zum Streamen der Online-Videos.
 
-Für die Suchfunktion wird ein YouTube Data API v3 Key benötigt. Beim ersten Start fragt die App danach und speichert ihn lokal über Expo SecureStore. Alternativ kann beim Build `EXPO_PUBLIC_YOUTUBE_API_KEY` gesetzt werden.
+## Android-Build
 
-## Android APK
-
-Ein Push auf `main` startet GitHub Actions. Der Workflow:
-
-1. rekonstruiert das App-Icon aus den versionierten Base64-Teilen,
-2. installiert die Abhängigkeiten,
-3. erzeugt das native Android-Projekt mit Expo Prebuild,
-4. baut `app-debug.apk`,
-5. stellt das APK als GitHub-Actions-Artefakt `Turktok-debug-apk` bereit.
-
-Das Debug-APK ist für direkte Tests/Sideloading gedacht. Für eine Veröffentlichung im Play Store sollte später ein signierter Release-Build bzw. ein Android App Bundle erstellt werden.
-
-## Lokal
-
-```bash
-npm install
-npx expo start
-```
-
-Android-Debug-APK lokal:
-
-```bash
-npm run build:apk:local
-```
+Der Standalone-Build liegt unter `android-native/`. GitHub Actions baut auf jedem Push nach `main` eine signierte Release-APK (mit Debug-Schlüssel für einfache Direktinstallation) und stellt sie als `Tuerktok-standalone-apk` bereit.

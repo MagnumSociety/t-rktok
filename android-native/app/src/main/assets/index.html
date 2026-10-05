@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Türktok</title>
+<style>
+:root{color-scheme:dark;--red:#b3232b;--panel:rgba(8,8,8,.82);--line:#333}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#000;color:#fff;font-family:system-ui,-apple-system,Roboto,Arial,sans-serif;overflow:hidden}
+button,input,textarea{font:inherit}
+#feed{position:fixed;inset:0;overflow-y:auto;scroll-snap-type:y mandatory;background:#000}
+.slide{height:100dvh;min-height:100vh;scroll-snap-align:start;position:relative;background:#000;overflow:hidden}
+.player{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center}
+.player iframe,.player video{width:100%;height:100%;border:0;background:#000;object-fit:contain}
+.header{position:fixed;z-index:40;top:0;left:0;right:0;padding:14px 10px 8px;padding-top:max(14px,env(safe-area-inset-top));display:flex;gap:8px;align-items:center;pointer-events:none}
+.tabs{display:flex;gap:5px;flex:1;background:var(--panel);padding:5px;border-radius:18px;backdrop-filter:blur(12px);pointer-events:auto}
+.tab{flex:1;border:0;border-radius:13px;padding:10px 5px;color:#ddd;background:transparent;font-size:10px;font-weight:800;line-height:1.15}
+.tab.active{background:#fff;color:#111}
+.add{width:48px;height:48px;border-radius:24px;border:0;background:var(--red);color:#fff;font-size:24px;font-weight:900;pointer-events:auto;box-shadow:0 4px 20px #0009}
+.bottom{position:absolute;left:14px;right:14px;bottom:max(24px,env(safe-area-inset-bottom));z-index:4;display:flex;align-items:flex-end;gap:10px;pointer-events:none}
+.caption{max-width:calc(100% - 58px);background:rgba(0,0,0,.55);border-radius:14px;padding:10px 12px;backdrop-filter:blur(8px)}
+.caption b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.caption span{display:block;color:#bbb;font-size:12px;margin-top:4px}
+.remove{margin-left:auto;width:46px;height:46px;border-radius:23px;border:1px solid #ffffff40;background:#0009;color:#fff;font-size:20px;pointer-events:auto}
+.empty{height:100%;display:flex;align-items:center;justify-content:center;padding:80px 26px 28px;text-align:center}
+.empty-card{max-width:440px;background:#111;border:1px solid #2f2f2f;border-radius:24px;padding:26px}
+.logo{width:92px;height:92px;border-radius:20px;object-fit:cover;margin-bottom:14px}
+.empty h1{font-size:28px;margin:2px 0 8px}
+.empty p{color:#bbb;line-height:1.45;margin:8px 0}
+.empty button{border:0;border-radius:999px;background:var(--red);color:#fff;font-weight:900;padding:13px 20px;margin-top:10px}
+.modal-bg{position:fixed;inset:0;z-index:80;background:#000c;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{width:min(520px,100%);background:#171717;border:1px solid #383838;border-radius:24px;padding:22px;box-shadow:0 20px 80px #000}
+.modal h2{margin:0 0 8px;font-size:22px}
+.modal p{margin:0 0 14px;color:#bbb;line-height:1.4;font-size:14px}
+textarea{width:100%;height:140px;resize:none;background:#090909;border:1px solid #444;border-radius:14px;color:#fff;padding:12px;outline:none}
+textarea:focus{border-color:#888}
+.actions{display:flex;gap:8px;margin-top:12px}
+.actions button{flex:1;border:0;border-radius:14px;padding:13px;font-weight:900}
+.primary{background:var(--red);color:#fff}
+.secondary{background:#2a2a2a;color:#fff}
+.danger{width:100%;margin-top:10px;border:1px solid #5a2929;background:transparent;color:#ff8d8d;border-radius:14px;padding:11px;font-weight:800}
+.note{font-size:12px!important;color:#8f8f8f!important;margin-top:10px!important}
+.badge{position:absolute;top:100px;left:14px;z-index:3;background:#0009;border:1px solid #ffffff26;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:800}
+</style>
+</head>
+<body>
+<div id="feed"></div>
+
+<div class="header">
+  <div class="tabs" id="tabs"></div>
+  <button class="add" id="addBtn" aria-label="Link hinzufügen">+</button>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>Video-Link hinzufügen</h2>
+    <p id="modalTopic"></p>
+    <textarea id="linkInput" placeholder="YouTube-, Shorts- oder direkte MP4/WebM-Links hier einfügen. Mehrere Links: einer pro Zeile."></textarea>
+    <div class="actions">
+      <button class="secondary" id="cancelBtn">Abbrechen</button>
+      <button class="primary" id="saveBtn">Hinzufügen</button>
+    </div>
+    <button class="danger" id="clearBtn">Aktuelle Liste leeren</button>
+    <p class="note">Kein API-Key nötig. YouTube wird ausschließlich über den eingebetteten Player geladen.</p>
+  </div>
+</div>
+
+<script>
+const TOPICS=[
+  {id:'erdogan',label:'Erdoğan Düzenlemeleri'},
+  {id:'ataturk',label:'Atatürk düzenlemeleri'},
+  {id:'halay',label:'Halay mix'}
+];
+const STORE='turktok.playlists.v3';
+let topic='erdogan';
+let observer=null;
+let playlists=load();
+
+function emptyLists(){return {erdogan:[],ataturk:[],halay:[]}}
+function load(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(STORE)||'null');
+    const base=emptyLists();
+    if(!raw) return base;
+    for(const t of TOPICS) if(Array.isArray(raw[t.id])) base[t.id]=raw[t.id];
+    return base;
+  }catch(e){return emptyLists()}
+}
+function save(){localStorage.setItem(STORE,JSON.stringify(playlists))}
+function topicLabel(){return TOPICS.find(t=>t.id===topic)?.label||topic}
+
+function extractYoutubeId(raw){
+  const s=(raw||'').trim();
+  if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  let u;
+  try{u=new URL(/^https?:\/\//i.test(s)?s:'https://'+s)}catch(e){return null}
+  const host=u.hostname.replace(/^www\./,'').replace(/^m\./,'');
+  if(host==='youtu.be'){
+    const id=u.pathname.split('/').filter(Boolean)[0];
+    return /^[A-Za-z0-9_-]{11}$/.test(id||'')?id:null;
+  }
+  if(host.endsWith('youtube.com')||host.endsWith('youtube-nocookie.com')){
+    const v=u.searchParams.get('v');
+    if(/^[A-Za-z0-9_-]{11}$/.test(v||'')) return v;
+    const parts=u.pathname.split('/').filter(Boolean);
+    const idx=parts.findIndex(p=>['shorts','embed','live'].includes(p));
+    if(idx>=0 && /^[A-Za-z0-9_-]{11}$/.test(parts[idx+1]||'')) return parts[idx+1];
+  }
+  return null;
+}
+function normalize(raw){
+  const text=(raw||'').trim();
+  if(!text) return null;
+  const id=extractYoutubeId(text);
+  if(id) return {kind:'youtube',id,url:'https://www.youtube.com/watch?v='+id};
+  let url=text;
+  if(!/^https?:\/\//i.test(url)) url='https://'+url;
+  try{
+    const u=new URL(url);
+    if(!['http:','https:'].includes(u.protocol)) return null;
+    return {kind:'direct',url:u.toString()};
+  }catch(e){return null}
+}
+function hostOf(url){
+  try{return new URL(url).hostname.replace(/^www\./,'')}catch(e){return 'Direktvideo'}
+}
+function keyOf(item){return item.kind==='youtube'?'yt:'+item.id:'url:'+item.url}
+
+function renderTabs(){
+  const tabs=document.getElementById('tabs');
+  tabs.innerHTML='';
+  TOPICS.forEach(t=>{
+    const b=document.createElement('button');
+    b.className='tab'+(t.id===topic?' active':'');
+    b.textContent=t.label;
+    b.onclick=()=>{topic=t.id;renderTabs();renderFeed()};
+    tabs.appendChild(b);
+  });
+}
+
+function makePlayer(shell,item){
+  if(shell.dataset.loaded==='1') return;
+  shell.dataset.loaded='1';
+  if(item.kind==='youtube'){
+    const f=document.createElement('iframe');
+    const origin=encodeURIComponent('https://turktok.local');
+    f.src='https://www.youtube-nocookie.com/embed/'+encodeURIComponent(item.id)
+      +'?autoplay=1&playsinline=1&controls=1&rel=0&loop=1&playlist='+encodeURIComponent(item.id)
+      +'&origin='+origin;
+    f.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.allowFullscreen=true;
+    f.referrerPolicy='strict-origin-when-cross-origin';
+    shell.appendChild(f);
+  }else{
+    const v=document.createElement('video');
+    v.src=item.url;
+    v.controls=true;
+    v.autoplay=true;
+    v.playsInline=true;
+    v.loop=true;
+    v.preload='metadata';
+    shell.appendChild(v);
+    v.play().catch(()=>{});
+  }
+}
+function unloadPlayer(shell){
+  if(shell.dataset.loaded!=='1') return;
+  shell.innerHTML='';
+  shell.dataset.loaded='0';
+}
+
+function renderFeed(){
+  if(observer) observer.disconnect();
+  const feed=document.getElementById('feed');
+  feed.innerHTML='';
+  feed.scrollTop=0;
+  const list=playlists[topic]||[];
+
+  if(!list.length){
+    const box=document.createElement('div');
+    box.className='empty';
+    box.innerHTML='<div class="empty-card">'
+      +'<h1>Türktok</h1>'
+      +'<p><b>'+escapeHtml(topicLabel())+'</b></p>'
+      +'<p>Noch keine Videos in dieser Liste. Füge einen YouTube-/Shorts-Link oder eine direkte Video-URL ein.</p>'
+      +'<button id="emptyAdd">+ Link hinzufügen</button>'
+      +'<p class="note">Die Links werden nur lokal auf diesem Gerät gespeichert.</p>'
+      +'</div>';
+    feed.appendChild(box);
+    document.getElementById('emptyAdd').onclick=openModal;
+    return;
+  }
+
+  list.forEach((item,index)=>{
+    const slide=document.createElement('section');
+    slide.className='slide';
+    slide.dataset.index=String(index);
+
+    const player=document.createElement('div');
+    player.className='player';
+    player.dataset.loaded='0';
+    slide.appendChild(player);
+
+    const badge=document.createElement('div');
+    badge.className='badge';
+    badge.textContent=(index+1)+' / '+list.length;
+    slide.appendChild(badge);
+
+    const bottom=document.createElement('div');
+    bottom.className='bottom';
+
+    const caption=document.createElement('div');
+    caption.className='caption';
+    const title=item.kind==='youtube'?'YouTube • '+item.id:hostOf(item.url);
+    caption.innerHTML='<b>'+escapeHtml(title)+'</b><span>'+escapeHtml(topicLabel())+'</span>';
+    bottom.appendChild(caption);
+
+    const remove=document.createElement('button');
+    remove.className='remove';
+    remove.textContent='×';
+    remove.title='Aus Liste entfernen';
+    remove.onclick=(ev)=>{ev.stopPropagation();removeAt(index)};
+    bottom.appendChild(remove);
+
+    slide.appendChild(bottom);
+    slide._item=item;
+    feed.appendChild(slide);
+  });
+
+  const slides=[...feed.querySelectorAll('.slide')];
+  observer=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      const shell=entry.target.querySelector('.player');
+      if(entry.isIntersecting && entry.intersectionRatio>=0.58){
+        makePlayer(shell,entry.target._item);
+      }else if(entry.intersectionRatio<0.2){
+        unloadPlayer(shell);
+      }
+    });
+  },{root:feed,threshold:[0,.2,.58,.8]});
+  slides.forEach(s=>observer.observe(s));
+
+  if(slides[0]) makePlayer(slides[0].querySelector('.player'),slides[0]._item);
+}
+
+function removeAt(index){
+  const list=playlists[topic]||[];
+  list.splice(index,1);
+  save();
+  renderFeed();
+}
+function openModal(){
+  document.getElementById('modalTopic').textContent='Liste: '+topicLabel();
+  document.getElementById('linkInput').value='';
+  document.getElementById('modal').classList.add('show');
+  setTimeout(()=>document.getElementById('linkInput').focus(),100);
+}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+function addLinks(){
+  const raw=document.getElementById('linkInput').value;
+  const lines=raw.split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  if(!lines.length){alert('Bitte mindestens einen Link einfügen.');return}
+  const parsed=lines.map(normalize).filter(Boolean);
+  if(!parsed.length){alert('Kein gültiger Link erkannt.');return}
+  const list=playlists[topic]||[];
+  const existing=new Set(list.map(keyOf));
+  let added=0;
+  parsed.forEach(item=>{
+    const key=keyOf(item);
+    if(!existing.has(key)){list.push(item);existing.add(key);added++}
+  });
+  playlists[topic]=list;
+  save();
+  closeModal();
+  renderFeed();
+  if(!added) alert('Diese Links sind bereits in der Liste.');
+}
+function clearCurrent(){
+  if(!(playlists[topic]||[]).length){closeModal();return}
+  if(confirm('Alle Links aus „'+topicLabel()+'“ entfernen?')){
+    playlists[topic]=[];
+    save();
+    closeModal();
+    renderFeed();
+  }
+}
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.getElementById('addBtn').onclick=openModal;
+document.getElementById('cancelBtn').onclick=closeModal;
+document.getElementById('saveBtn').onclick=addLinks;
+document.getElementById('clearBtn').onclick=clearCurrent;
+document.getElementById('modal').onclick=e=>{if(e.target.id==='modal') closeModal()};
+renderTabs();
+renderFeed();
+</script>
+</body>
+</html>

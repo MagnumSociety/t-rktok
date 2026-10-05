@@ -1,0 +1,24 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.turktok.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.turktok.app'
+        minSdk 23
+        targetSdk 35
+        versionCode 4
+        versionName '3.0.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            signingConfig signingConfigs.debug
+        }
+    }
+}
